@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html id="html" lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>todolist</title>
+  </head>
+  <body>
+    <div id="root">
+      <input type="text" id="input" placeholder="todo..." />
+      <input type="button" id="button" value="add" />
+      <div>cards: <span id="cards"></span></div>
+    </div>
+
+    <script>
+      var log = console.log;
+
+      function createStore(reducer) {
+        var state = reducer();
+        var eventhub = [];
+        console.log("init state: ", state);
+        function getState() {
+          return state;
+        }
+        function dispatch(action) {
+          state = reducer(state, action);
+          eventhub.forEach((i) => i());
+        }
+        function subscribe(fn) {
+          eventhub.push(fn);
+        }
+        return {
+          getState,
+          dispatch,
+          subscribe,
+        };
+      }
+
+      function reducer(state = 0, action) {
+        return action?.type === "add"
+          ? state + action.payload
+          : action?.type === "minus"
+          ? state - action.payload
+          : state;
+      }
+
+      window.Redux = {
+        createStore,
+        reducer,
+      };
+
+      function render(store) {
+        var cards = $("#cards");
+        cards.innerHTML = `
+          ${store.getState()}
+        `;
+      }
+
+      var store = Redux.createStore(Redux.reducer);
+
+      Element.prototype.remove = function () {
+        var parent = this.parentNode;
+        parent.removeChild(this);
+        return this;
+      };
+
+      Element.prototype.on = addEventListener;
+
+      Element.prototype.set = Element.prototype.setAttribute;
+
+      window.DOM = function (query) {
+        return new DOM.fn.init(query);
+      };
+
+      DOM.fn = DOM.prototype = {
+        constructor: DOM,
+        init: function (query) {
+          return document.querySelector(query);
+        },
+      };
+      DOM.fn.init.prototype = DOM.fn;
+
+      DOM.extend = DOM.fn.extend = function (options) {
+        var target = this;
+        console.log("this: ", this);
+        var copy;
+        for (name in options) {
+          copy = options[name];
+          target[name] = copy;
+        }
+        return target;
+      };
+
+      DOM.extend({
+        hello: function () {
+          console.log("hello");
+        },
+        createDiv: function (content) {
+          var d = document.createElement("div");
+          d.innerHTML = content;
+          return d;
+        },
+        createSpan: function (content) {
+          var s = document.createElement("span");
+          s.innerHTML = content;
+          return s;
+        },
+        render: function (dom, container) {
+          container.appendChild(dom);
+          return dom;
+        },
+        req: function (url) {
+          return fetch(url).then((res) => res.json());
+        },
+        card: function (data) {
+          content = `
+              <div>todo: ${data.id}</div>
+              <div>content: ${data.title}</div>
+              <div>function: <span><button onclick="addEdit(this)"> E </button> </span> <span> <button onclick="addExit(this)"> X </button></span></div>
+          `;
+          var dom = this.createDiv(content);
+          return dom;
+        },
+        test: function () {
+          console.log("hello");
+        },
+        setAttr: function (dom, attr) {
+          Object.keys(attr).forEach((name) => {
+            dom.set(name, attr[name]);
+          });
+        },
+      });
+
+      window.$ = DOM;
+
+      var root = $("#root");
+
+      log(root);
+
+      function addEdit(e) {
+        e.parentNode.parentNode.parentNode.children[1].set(
+          "contenteditable",
+          "true"
+        );
+      }
+      function addExit(e) {
+        e.parentNode.parentNode.parentNode.remove();
+        store.dispatch({ type: "minus", payload: 1 });
+      }
+
+      (async function read() {
+        var res = await $.req("https://jsonplaceholder.typicode.com/todos");
+
+        var target = res.slice(0, 7);
+
+        var card = {};
+
+        target.forEach((item) => {
+          card = $.render($.card(item), root);
+          store.dispatch({ type: "add", payload: 1 });
+          $.setAttr(card, {
+            style:
+              "color:blue;width:600px;border:black solid 1px;padding:5px;margin:1px;border-radius:10px",
+          });
+        });
+
+        $("#button").on("click", (e) => {
+          var input = $("#input");
+          var content = input.value;
+          input.value = "";
+          store.dispatch({ type: "add", payload: 1 });
+
+          var todo = $.createDiv(`${content}`);
+          var edit = $.createSpan("<button> E </button>");
+          $.render(edit, todo);
+          edit.on("click", (e) => {
+            e.target.parentNode.parentNode.set("contenteditable", "true");
+          });
+
+          var del = $.createSpan("<button> X </button>");
+          $.render(del, todo);
+          del.on("click", (e) => {
+            store.dispatch({ type: "minus", payload: 1 });
+            e.target.parentNode.parentNode.remove();
+          });
+
+          card = $.render(todo, root);
+          $.setAttr(card, {
+            style:
+              "color:blue;width:600px;border:black solid 1px;padding:5px;margin:1px;border-radius:10px",
+          });
+        });
+
+        render(store);
+        store.subscribe(() => {
+          render(store);
+        });
+      })();
+    </script>
+  </body>
+</html>
